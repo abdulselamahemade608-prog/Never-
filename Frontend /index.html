@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    >
+
+    <title>FulusApp</title>
+
+    <link rel="stylesheet" href="style.css">
+
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+
+<body>
+
+<div class="app">
+
+    <!-- ================= HOME ================= -->
+    <section id="homePage" class="page active">
+
+        <div class="topbar">
+            <div>
+                <p class="small-text">Available Balance</p>
+                <h1 id="balance">5.00 ETB</h1>
+            </div>
+
+            <div class="wallet-icon">💰</div>
+        </div>
+
+        <button class="withdraw-top" onclick="showPage('withdrawPage')">
+            Withdraw
+        </button>
+
+        <!-- Daily Streak -->
+        <div class="card">
+
+            <div class="card-header">
+                <div>
+                    <h2>Daily Streak</h2>
+                    <p>Check in every day and earn more.</p>
+                </div>
+
+                <span class="streak-icon">🔥</span>
+            </div>
+
+            <div class="streak-days">
+
+                <div class="day">
+                    <span>1</span>
+                    <b>2 ETB</b>
+                </div>
+
+                <div class="day">
+                    <span>2</span>
+                    <b>4 ETB</b>
+                </div>
+
+                <div class="day">
+                    <span>3</span>
+                    <b>5 ETB</b>
+                </div>
+
+                <div class="day">
+                    <span>4</span>
+                    <b>7 ETB</b>
+                </div>
+
+                <div class="day">
+                    <span>5</span>
+                    <b>9 ETB</b>
+                </div>
+
+                <div class="day">
+                    <span>6</span>
+                    <b>11 ETB</b>
+                </div>
+
+                <div class="day">
+                    <span>7</span>
+                    <b>12 ETB</b>
+                </div>
+
+            </div>
+
+            <div class="progress-info">
+                <span>Progress</span>
+                <span>0 / 50 ETB</span>
+            </div>
+
+            <div class="progress-bar">
+                <div class="progress-fill" id="streakProgress"></div>
+            </div>
+
+            <p class="earn-text">
+                Earn 2 ETB on your next check-in.
+            </p>
+
+            <button class="primary-btn" id="checkInBtn" onclick="checkIn()">
+                ✓ Check In
+            </button>
+
+        </div>
+
+        <!-- Earn Today -->
+        <div class="section-title">
+            <h2>Earn Today</h2>
+        </div>
+
+        <div class="task-card" onclick="watchAd()">
+
+            <div class="task-icon">📺</div>
+
+            <div class="task-info">
+                <h3>Watch Ads</h3>
+                <p>Watch an advertisement</p>
+            </div>
+
+            <strong>+10 ETB</strong>
+
+        </div>
+
+        <div class="task-card" onclick="joinChannel()">
+
+            <div class="task-icon">📢</div>
+
+            <div class="task-info">
+                <h3>Join our Channel</h3>
+                <p>Join our Telegram channel</p>
+            </div>
+
+            <strong>+5 ETB</strong>
+
+        </div>
+
+        <div class="task-card">
+
+            <div class="task-icon">📝</div>
+
+            <div class="task-info">
+                <h3>Complete one survey</h3>
+                <p>Coming soon</p>
+            </div>
+
+            <strong>+50 ETB</strong>
+
+        </div>
+
+        <!-- Invite -->
+        <div class="invite-card">
+
+            <div>
+                <h2>Invite Friends</h2>
+                <p>Invite friends and earn rewards.</p>
+            </div>
+
+            <button onclick="inviteFriends()">
+                Invite
+            </button>
+
+        </div>
+
+    </section>
+
+
+    <!-- ================= TASKS ================= -->
+    <section id="tasksPage" class="page">
+
+        <div class="page-title">
+            <h1>Tasks</h1>
+            <p>Complete tasks and earn ETB.</p>
+        </div>
+
+        <h2 class="section-heading">Available Tasks</h2>
+
+        <div class="big-task-card">
+
+            <div class="task-row">
+
+                <div class="large-task-icon">
+                    📺
+                </div>
+
+                <div>
+                    <h3>Watch Ads</h3>
+                    <p>Watch advertisements and earn.</p>
+                </div>
+
+                <strong>+2 ETB</strong>
+
+            </div>
+
+            <div class="task-progress-text">
+                <span id="adCount">0/10 completed</span>
+            </div>
+
+            <div class="progress-bar">
+                <div
+                    class="progress-fill"
+                    id="adProgress"
+                    style="width:0%"
+                ></div>
+            </div>
+
+            <button class="secondary-btn" onclick="watchAd()">
+                Watch Ad
+            </button>
+
+        </div>
+
+
+        <div class="big-task-card disabled">
+
+            <div class="task-row">
+
+                <div class="large-task-icon">
+                    🎁
+                </div>
+
+                <div>
+                    <h3>Visit Offers</h3>
+                    <p>Complete offers.</p>
+                </div>
+
+                <strong>Up to 1,500 ETB</strong>
+
+            </div>
+
+            <span class="coming-soon">
+                Coming Soon
+            </span>
+
+        </div>
+
+
+        <div class="big-task-card disabled">
+
+            <div class="task-row">
+
+                <div class="large-task-icon">
+                    📋
+                </div>
+
+                <div>
+                    <h3>Complete Surveys</h3>
+                    <p>Answer surveys and earn.</p>
+                </div>
+
+                <strong>Up to 1,000 ETB</strong>
+
+            </div>
+
+            <span class="coming-soon">
+                Coming Soon
+            </span>
+
+        </div>
+
+
+        <!-- Referral -->
+        <h2 class="section-heading">
+            Refer & Earn
+        </h2>
+
+        <div class="referral-card">
+
+            <div class="referral-top">
+                <div>
+                    <p>Reward per referral</p>
+                    <h2>+5 ETB</h2>
+                </div>
+
+                <div class="referral-icon">
+                    👥
+                </div>
+            </div>
+
+            <div class="referral-stats">
+
+                <div>
+                    <span>Total Referrals</span>
+                    <b id="referrals">0</b>
+                </div>
+
+                <div>
+                    <span>Your Code</span>
+                    <b id="referralCode">LOADING</b>
+                </div>
+
+            </div>
+
+            <button
+                class="primary-btn"
+                onclick="inviteFriends()"
+            >
+                Invite Friends
+            </button>
+
+        </div>
+
+    </section>
+
+
+    <!-- ================= WITHDRAW ================= -->
+    <section id="withdrawPage" class="page">
+
+        <div class="page-title">
+            <h1>Withdraw</h1>
+            <p>Withdraw your available balance.</p>
+        </div>
+
+
+        <div class="balance-card">
+
+            <span>Current Balance</span>
+
+            <h1 id="withdrawBalance">
+                5.00 ETB
+            </h1>
+
+        </div>
+
+
+        <div class="withdraw-requirements">
+
+            <h3>Withdrawal Requirements</h3>
+
+            <div class="requirement">
+                <span>Minimum balance</span>
+                <b>100 ETB</b>
+            </div>
+
+            <div class="requirement">
+                <span>Minimum referrals</span>
+                <b>5 friends</b>
+            </div>
+
+            <div class="requirement">
+                <span>Account age</span>
+                <b>5 days</b>
+            </div>
+
+            <div class="requirement">
+                <span>Telegram channel</span>
+                <b class="green">Joined</b>
+            </div>
+
+        </div>
+
+
+        <h3 class="section-heading">
+            Payment Method
+        </h3>
+
+        <div class="payment-methods">
+
+            <button
+                class="payment-method active"
+                onclick="selectPayment(this, 'Telebirr')"
+            >
+                <span>📱</span>
+                <div>
+                    <b>Telebirr</b>
+                    <small>Ethiotelecom</small>
+                </div>
+            </button>
+
+
+            <button
+                class="payment-method"
+                onclick="selectPayment(this, 'CBE')"
+            >
+                <span>🏦</span>
+                <div>
+                    <b>CBE</b>
+                    <small>Commercial Bank of Ethiopia</small>
+                </div>
+            </button>
+
+
+            <button
+                class="payment-method"
+                onclick="selectPayment(this, 'Awash Bank')"
+            >
+                <span>🏦</span>
+                <div>
+                    <b>Awash Bank</b>
+                    <small>Bank account</small>
+                </div>
+            </button>
+
+        </div>
+
+
+        <div class="input-group">
+
+            <label>Withdrawal Amount</label>
+
+            <input
+                type="number"
+                id="withdrawAmount"
+                placeholder="Enter amount"
+                min="100"
+            >
+
+        </div>
+
+
+        <div class="input-group">
+
+            <label id="accountLabel">
+                Telebirr Phone Number
+            </label>
+
+            <input
+                type="text"
+                id="accountNumber"
+                placeholder="Enter phone number"
+            >
+
+        </div>
+
+
+        <button
+            class="primary-btn withdraw-btn"
+            onclick="requestWithdraw()"
+        >
+            Withdraw
+        </button>
+
+
+        <h2 class="section-heading">
+            Withdrawal History
+        </h2>
+
+        <div id="withdrawHistory">
+
+            <div class="empty-history">
+                No withdrawal history yet.
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- ================= ABOUT ================= -->
+    <section id="aboutPage" class="page">
+
+        <div class="page-title">
+            <h1>About</h1>
+            <p>Learn more about FulusApp.</p>
+        </div>
+
+
+        <div class="about-card">
+
+            <div class="app-logo">
+                💰
+            </div>
+
+            <h2>FulusApp</h2>
+
+            <p>
+                FulusApp is a rewards platform where users
+                can complete tasks, invite friends and earn
+                rewards.
+            </p>
+
+        </div>
+
+
+        <div class="menu-card" onclick="showTerms()">
+            <span>📄</span>
+            <div>
+                <b>Terms & Conditions</b>
+                <small>Read our terms</small>
+            </div>
+            <span>›</span>
+        </div>
+
+
+        <div class="menu-card" onclick="showPrivacy()">
+            <span>🔒</span>
+            <div>
+                <b>Privacy Policy</b>
+                <small>Learn how your data is used</small>
+            </div>
+            <span>›</span>
+        </div>
+
+
+        <div
+            class="menu-card"
+            onclick="contactSupport()"
+        >
+            <span>💬</span>
+            <div>
+                <b>Contact Support</b>
+                <small>Need help?</small>
+            </div>
+            <span>›</span>
+        </div>
+
+    </section>
+
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+
+        <button
+            class="nav-btn active"
+            data-page="homePage"
+            onclick="showPage('homePage')"
+        >
+            <span>⌂</span>
+            <small>Home</small>
+        </button>
+
+
+        <button
+            class="nav-btn"
+            data-page="tasksPage"
+            onclick="showPage('tasksPage')"
+        >
+            <span>✓</span>
+            <small>Tasks</small>
+        </button>
+
+
+        <button
+            class="nav-btn"
+            data-page="withdrawPage"
+            onclick="showPage('withdrawPage')"
+        >
+            <span>💳</span>
+            <small>Withdraw</small>
+        </button>
+
+
+        <button
+            class="nav-btn"
+            data-page="aboutPage"
+            onclick="showPage('aboutPage')"
+        >
+            <span>☰</span>
+            <small>About</small>
+        </button>
+
+    </nav>
+
+</div>
+
+<script src="app.js"></script>
+
+</body>
+                  </html>
