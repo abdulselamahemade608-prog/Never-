@@ -1,172 +1,1443 @@
-/* =====================================================
-   FULUSAPP MINI APP
-   ===================================================== */
+/* =========================================================
+   FULUSAPP - PRODUCTION MINI APP FRONTEND
+   ========================================================= */
+
+/*
+    IMPORTANT:
+
+    Your backend must provide these endpoints:
+
+    GET  /api/me
+    POST /api/check-in
+    POST /api/tasks/:id/complete
+    POST /api/withdraw
+    GET  /api/withdrawals
+
+    The backend must authenticate the user using:
+
+    Telegram.WebApp.initData
+
+    Do NOT trust initDataUnsafe for balance/payment security.
+*/
+
+
+/* =========================================================
+   TELEGRAM
+   ========================================================= */
 
 const tg = window.Telegram?.WebApp;
 
 
-/* ================= TELEGRAM ================= */
+/* =========================================================
+   BACKEND
+   ========================================================= */
 
-if (tg) {
+/*
+    IMPORTANT:
+
+    If your API is on the same domain:
+
+        const API_BASE = "/api";
+
+    If your API is on another server:
+
+        const API_BASE = "https://your-api-domain.com/api";
+
+    Do NOT put your Telegram bot token here.
+*/
+
+const API_BASE = "/api";
+
+
+/* =========================================================
+   APP STATE
+   ========================================================= */
+
+let state = {
+
+    user: null,
+
+    balance: 0,
+
+    streak: 0,
+
+    streakDays: [],
+
+    tasks: [],
+
+    todayEarned: 0,
+
+    referrals: 0,
+
+    referralCode: "",
+
+    referralReward: 0,
+
+    withdrawalRequirements: [],
+
+    paymentMethods: [],
+
+    withdrawalHistory: [],
+
+    selectedPaymentMethod: null
+
+};
+
+
+/* =========================================================
+   START APP
+   ========================================================= */
+
+document.addEventListener("DOMContentLoaded", async () => {
+
+    setupTelegram();
+
+    setupBackButton();
+
+    await loadAccount();
+
+});
+
+
+/* =========================================================
+   TELEGRAM SETUP
+   ========================================================= */
+
+function setupTelegram() {
+
+    if (!tg) {
+
+        showToast(
+            "Please open this app inside Telegram."
+        );
+
+        return;
+    }
 
     tg.ready();
 
     tg.expand();
 
+    /*
+        Apply Telegram theme when possible.
+    */
+
     if (tg.setHeaderColor) {
-        tg.setHeaderColor("#080b09");
+
+        tg.setHeaderColor("#07100b");
+
     }
 
     if (tg.setBackgroundColor) {
-        tg.setBackgroundColor("#080b09");
+
+        tg.setBackgroundColor("#050806");
+
     }
 }
 
 
-/* ================= USER ================= */
+/* =========================================================
+   BACK BUTTON
+   ========================================================= */
 
-let telegramUser = null;
+function setupBackButton() {
 
-if (tg && tg.initDataUnsafe) {
-    telegramUser = tg.initDataUnsafe.user;
-}
-
-
-/* ================= APP DATA ================= */
-
-let balance = 5.00;
-
-let referrals = 0;
-
-let adCompleted = 0;
-
-let selectedPayment = "Telebirr";
-
-let checkedIn = false;
-
-
-/* ================= USER CODE ================= */
-
-function getReferralCode() {
-
-    if (telegramUser && telegramUser.id) {
-
-        return "FU" + telegramUser.id;
-
+    if (!tg?.BackButton) {
+        return;
     }
 
-    return "DEMO123";
+    tg.BackButton.onClick(() => {
+
+        openPage("home");
+
+    });
 
 }
 
 
-/* ================= UPDATE UI ================= */
+/* =========================================================
+   API REQUEST
+   ========================================================= */
 
-function updateUI() {
+async function apiRequest(
+    endpoint,
+    options = {}
+) {
 
-    const balanceText =
-        Number(balance).toFixed(2) + " ETB";
+    const headers = {
 
+        "Content-Type":
+            "application/json",
 
-    const balanceElement =
-        document.getElementById("balance");
+        ...(options.headers || {})
 
-    if (balanceElement) {
-        balanceElement.textContent = balanceText;
-    }
-
-
-    const withdrawBalance =
-        document.getElementById("withdrawBalance");
-
-    if (withdrawBalance) {
-        withdrawBalance.textContent = balanceText;
-    }
+    };
 
 
-    const referralCode =
-        document.getElementById("referralCode");
+    /*
+        Telegram Mini App authentication data.
 
-    if (referralCode) {
-        referralCode.textContent =
-            getReferralCode();
-    }
+        This is sent to the server so the server
+        can validate the Telegram user.
+    */
 
+    if (tg?.initData) {
 
-    const referralElement =
-        document.getElementById("referrals");
-
-    if (referralElement) {
-        referralElement.textContent =
-            referrals;
-    }
-
-
-    const adCount =
-        document.getElementById("adCount");
-
-    if (adCount) {
-
-        adCount.textContent =
-            adCompleted + "/10 completed";
+        headers[
+            "X-Telegram-Init-Data"
+        ] = tg.initData;
 
     }
 
 
-    const adProgress =
-        document.getElementById("adProgress");
+    const response = await fetch(
+        `${API_BASE}${endpoint}`,
+        {
+            ...options,
+            headers
+        }
+    );
 
-    if (adProgress) {
 
-        const percent =
-            Math.min(
-                (adCompleted / 10) * 100,
-                100
+    let data = null;
+
+
+    try {
+
+        data = await response.json();
+
+    } catch {
+
+        throw new Error(
+            "Invalid server response."
+        );
+
+    }
+
+
+    if (!response.ok) {
+
+        throw new Error(
+            data?.message ||
+            "Request failed."
+        );
+
+    }
+
+
+    return data;
+}
+
+
+/* =========================================================
+   LOAD ACCOUNT
+   ========================================================= */
+
+async function loadAccount() {
+
+    try {
+
+        /*
+            Real server data.
+        */
+
+        const data =
+            await apiRequest("/me");
+
+
+        state.user =
+            data.user || null;
+
+        state.balance =
+            Number(data.balance || 0);
+
+        state.streak =
+            Number(data.streak || 0);
+
+        state.streakDays =
+            data.streakDays || [];
+
+        state.tasks =
+            data.tasks || [];
+
+        state.todayEarned =
+            Number(data.todayEarned || 0);
+
+        state.referrals =
+            Number(data.referrals || 0);
+
+        state.referralCode =
+            data.referralCode || "";
+
+        state.referralReward =
+            Number(data.referralReward || 0);
+
+        state.withdrawalRequirements =
+            data.withdrawalRequirements || [];
+
+        state.paymentMethods =
+            data.paymentMethods || [];
+
+        state.withdrawalHistory =
+            data.withdrawalHistory || [];
+
+
+        renderApp();
+
+
+    } catch (error) {
+
+        console.error(error);
+
+        showToast(
+            error.message ||
+            "Could not load your account."
+        );
+
+        /*
+            Do NOT insert fake balance here.
+        */
+
+    }
+
+}
+
+
+/* =========================================================
+   RENDER APP
+   ========================================================= */
+
+function renderApp() {
+
+    renderUser();
+
+    renderBalance();
+
+    renderStreak();
+
+    renderTasks();
+
+    renderReferral();
+
+    renderRequirements();
+
+    renderPaymentMethods();
+
+    renderWithdrawalHistory();
+
+
+    document
+        .getElementById("loadingScreen")
+        ?.classList.add("hidden");
+
+
+    document
+        .getElementById("mainApp")
+        ?.classList.remove("hidden");
+
+
+    document
+        .getElementById("bottomNav")
+        ?.classList.remove("hidden");
+
+}
+
+
+/* =========================================================
+   USER
+   ========================================================= */
+
+function renderUser() {
+
+    const name =
+        state.user?.firstName ||
+        state.user?.username ||
+        "User";
+
+
+    const username =
+        state.user?.username;
+
+
+    document
+        .getElementById("userName")
+        .textContent =
+            username
+                ? `@${username}`
+                : name;
+
+
+    const avatar =
+        document.getElementById(
+            "profileAvatar"
+        );
+
+
+    avatar.textContent =
+        String(name)
+            .charAt(0)
+            .toUpperCase();
+
+}
+
+
+/* =========================================================
+   BALANCE
+   ========================================================= */
+
+function renderBalance() {
+
+    const balance =
+        formatMoney(state.balance);
+
+
+    document
+        .getElementById("balance")
+        .textContent =
+            balance;
+
+
+    document
+        .getElementById("withdrawBalance")
+        .textContent =
+            balance;
+
+
+    document
+        .getElementById("todayEarned")
+        .textContent =
+            formatMoney(
+                state.todayEarned
             );
 
-        adProgress.style.width =
-            percent + "%";
+}
+
+
+/* =========================================================
+   STREAK
+   ========================================================= */
+
+function renderStreak() {
+
+    const container =
+        document.getElementById(
+            "streakDays"
+        );
+
+
+    container.innerHTML = "";
+
+
+    const rewards = [
+        2,
+        4,
+        5,
+        7,
+        9,
+        11,
+        12
+    ];
+
+
+    for (
+        let i = 0;
+        i < 7;
+        i++
+    ) {
+
+        const dayNumber = i + 1;
+
+        const completed =
+            dayNumber <= state.streak;
+
+
+        const today =
+            dayNumber ===
+            state.streak + 1;
+
+
+        const div =
+            document.createElement("div");
+
+
+        div.className =
+            "streak-day";
+
+
+        if (completed) {
+
+            div.classList.add(
+                "completed"
+            );
+
+        }
+
+
+        if (today) {
+
+            div.classList.add(
+                "today"
+            );
+
+        }
+
+
+        div.innerHTML = `
+
+            <div class="streak-circle">
+                ${completed ? "✓" : dayNumber}
+            </div>
+
+            <small>
+                ${rewards[i]} ETB
+            </small>
+
+        `;
+
+
+        container.appendChild(div);
+
+    }
+
+
+    const progress =
+        Math.min(
+            state.streak,
+            7
+        );
+
+
+    document
+        .getElementById(
+            "streakProgress"
+        )
+        .style.width =
+            `${(progress / 7) * 100}%`;
+
+
+    document
+        .getElementById(
+            "streakProgressText"
+        )
+        .textContent =
+            `${progress} / 7`;
+
+
+    document
+        .getElementById("streak")
+        .textContent =
+            state.streak;
+
+
+    const checkButton =
+        document.getElementById(
+            "checkInButton"
+        );
+
+
+    if (
+        state.streakDays
+            ?.todayChecked
+    ) {
+
+        checkButton.disabled =
+            true;
+
+        checkButton.textContent =
+            "Checked In ✓";
+
     }
 
 }
 
 
-/* ================= PAGE NAVIGATION ================= */
+/* =========================================================
+   TASKS
+   ========================================================= */
 
-function showPage(pageId) {
+function renderTasks() {
 
-    const pages =
-        document.querySelectorAll(".page");
+    const home =
+        document.getElementById(
+            "homeTasks"
+        );
 
-    pages.forEach(page => {
+    const all =
+        document.getElementById(
+            "allTasks"
+        );
 
-        page.classList.remove("active");
+
+    home.innerHTML = "";
+
+    all.innerHTML = "";
+
+
+    const available =
+        Array.isArray(state.tasks)
+            ? state.tasks
+            : [];
+
+
+    /*
+        Show the first 3 on home.
+    */
+
+    available
+        .slice(0, 3)
+        .forEach(task => {
+
+            home.appendChild(
+                createTask(task)
+            );
+
+        });
+
+
+    available.forEach(task => {
+
+        all.appendChild(
+            createTask(task)
+        );
 
     });
 
 
-    const selected =
-        document.getElementById(pageId);
+    if (
+        available.length === 0
+    ) {
 
-    if (selected) {
-        selected.classList.add("active");
+        const empty =
+            emptyMessage(
+                "No tasks available right now."
+            );
+
+
+        home.appendChild(
+            empty.cloneNode(true)
+        );
+
+        all.appendChild(empty);
+
+    }
+
+}
+
+
+/* =========================================================
+   CREATE TASK
+   ========================================================= */
+
+function createTask(task) {
+
+    const element =
+        document.createElement("div");
+
+
+    element.className =
+        "task-item";
+
+
+    const completed =
+        Boolean(task.completed);
+
+
+    const reward =
+        Number(task.reward || 0);
+
+
+    const progress =
+        task.progress
+            ? `${task.progress.current}/${task.progress.total}`
+            : "";
+
+
+    element.innerHTML = `
+
+        <div class="task-icon">
+            ${task.icon || "✦"}
+        </div>
+
+        <div class="task-info">
+
+            <strong>
+                ${escapeHTML(
+                    task.title || "Task"
+                )}
+            </strong>
+
+            <p>
+                ${
+                    escapeHTML(
+                        task.description || ""
+                    )
+                }
+
+                ${
+                    progress
+                        ? ` • ${progress}`
+                        : ""
+                }
+            </p>
+
+        </div>
+
+        <div class="task-reward">
+            +${formatMoney(reward)}
+            ETB
+        </div>
+
+        <button
+            class="task-button ${
+                completed
+                    ? "completed"
+                    : ""
+            }"
+            ${
+                completed
+                    ? "disabled"
+                    : ""
+            }
+            onclick="
+                completeTask(
+                    '${escapeAttribute(task.id)}'
+                )
+            "
+        >
+            ${
+                completed
+                    ? "Done"
+                    : "Start"
+            }
+        </button>
+
+    `;
+
+
+    return element;
+}
+
+
+/* =========================================================
+   COMPLETE TASK
+   ========================================================= */
+
+async function completeTask(taskId) {
+
+    try {
+
+        if (!taskId) {
+
+            showToast(
+                "Invalid task."
+            );
+
+            return;
+
+        }
+
+
+        showToast(
+            "Opening task..."
+        );
+
+
+        /*
+            Server decides whether the reward
+            is actually granted.
+        */
+
+        const result =
+            await apiRequest(
+                `/tasks/${encodeURIComponent(
+                    taskId
+                )}/complete`,
+                {
+                    method: "POST"
+                }
+            );
+
+
+        if (result.url) {
+
+            openExternal(
+                result.url
+            );
+
+        }
+
+
+        /*
+            Reload real balance/tasks.
+        */
+
+        await loadAccount();
+
+
+    } catch (error) {
+
+        showToast(
+            error.message
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   CHECK IN
+   ========================================================= */
+
+async function checkIn() {
+
+    const button =
+        document.getElementById(
+            "checkInButton"
+        );
+
+
+    button.disabled = true;
+
+    button.textContent =
+        "Checking...";
+
+
+    try {
+
+        const result =
+            await apiRequest(
+                "/check-in",
+                {
+                    method: "POST"
+                }
+            );
+
+
+        if (result.message) {
+
+            showToast(
+                result.message
+            );
+
+        }
+
+
+        await loadAccount();
+
+
+    } catch (error) {
+
+        button.disabled = false;
+
+        button.textContent =
+            "Check In";
+
+
+        showToast(
+            error.message
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   REFERRAL
+   ========================================================= */
+
+function renderReferral() {
+
+    document
+        .getElementById(
+            "referralCode"
+        )
+        .textContent =
+            state.referralCode ||
+            "Unavailable";
+
+
+    document
+        .getElementById(
+            "totalReferrals"
+        )
+        .textContent =
+            state.referrals;
+
+
+    document
+        .getElementById(
+            "referralReward"
+        )
+        .textContent =
+            formatMoney(
+                state.referralReward
+            );
+
+}
+
+
+/* =========================================================
+   COPY REFERRAL
+   ========================================================= */
+
+async function copyReferral() {
+
+    if (!state.referralCode) {
+
+        showToast(
+            "Referral code unavailable."
+        );
+
+        return;
+
     }
 
 
-    const buttons =
-        document.querySelectorAll(".nav-btn");
+    try {
 
-    buttons.forEach(button => {
+        await navigator.clipboard.writeText(
+            state.referralCode
+        );
 
-        button.classList.remove("active");
 
-        if (
-            button.dataset.page === pageId
-        ) {
+        showToast(
+            "Referral code copied."
+        );
 
-            button.classList.add("active");
+
+    } catch {
+
+        showToast(
+            "Could not copy code."
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   INVITE FRIENDS
+   ========================================================= */
+
+function inviteFriends() {
+
+    if (!state.referralCode) {
+
+        showToast(
+            "Referral link unavailable."
+        );
+
+        return;
+
+    }
+
+
+    const botUsername =
+        state.user?.botUsername;
+
+
+    if (!botUsername) {
+
+        showToast(
+            "Bot referral link unavailable."
+        );
+
+        return;
+
+    }
+
+
+    const link =
+        `https://t.me/${botUsername}?start=ref_${encodeURIComponent(
+            state.referralCode
+        )}`;
+
+
+    const shareText =
+        "Join FulusApp and start earning rewards!";
+
+
+    if (
+        tg?.openTelegramLink
+    ) {
+
+        tg.openTelegramLink(
+            `https://t.me/share/url?url=${encodeURIComponent(
+                link
+            )}&text=${encodeURIComponent(
+                shareText
+            )}`
+        );
+
+    } else {
+
+        openExternal(link);
+
+    }
+
+}
+
+
+/* =========================================================
+   REQUIREMENTS
+   ========================================================= */
+
+function renderRequirements() {
+
+    const container =
+        document.getElementById(
+            "requirementsList"
+        );
+
+
+    container.innerHTML = "";
+
+
+    const requirements =
+        Array.isArray(
+            state.withdrawalRequirements
+        )
+            ? state.withdrawalRequirements
+            : [];
+
+
+    requirements.forEach(requirement => {
+
+        const row =
+            document.createElement("div");
+
+
+        row.className =
+            "requirement";
+
+
+        if (requirement.completed) {
+
+            row.classList.add("ok");
 
         }
+
+
+        row.innerHTML = `
+
+            <div class="requirement-icon">
+                ${
+                    requirement.completed
+                        ? "✓"
+                        : "•"
+                }
+            </div>
+
+            <span>
+                ${
+                    escapeHTML(
+                        requirement.text || ""
+                    )
+                }
+            </span>
+
+        `;
+
+
+        container.appendChild(row);
+
+    });
+
+}
+
+
+/* =========================================================
+   PAYMENT METHODS
+   ========================================================= */
+
+function renderPaymentMethods() {
+
+    const container =
+        document.getElementById(
+            "paymentMethods"
+        );
+
+
+    container.innerHTML = "";
+
+
+    state.paymentMethods
+        .forEach(method => {
+
+            const button =
+                document.createElement(
+                    "button"
+                );
+
+
+            button.className =
+                "payment-method";
+
+
+            if (
+                state.selectedPaymentMethod ===
+                method.id
+            ) {
+
+                button.classList.add(
+                    "selected"
+                );
+
+            }
+
+
+            button.textContent =
+                method.name;
+
+
+            button.onclick = () => {
+
+                state.selectedPaymentMethod =
+                    method.id;
+
+
+                renderPaymentMethods();
+
+            };
+
+
+            container.appendChild(
+                button
+            );
+
+        });
+
+
+    if (
+        state.paymentMethods.length === 0
+    ) {
+
+        container.innerHTML = `
+            <div style="
+                grid-column:1/-1;
+                color:#69756e;
+                font-size:11px;
+                padding:10px;
+                text-align:center;
+            ">
+                No payment methods available.
+            </div>
+        `;
+
+    }
+
+}
+
+
+/* =========================================================
+   WITHDRAW
+   ========================================================= */
+
+async function submitWithdrawal() {
+
+    const amountInput =
+        document.getElementById(
+            "withdrawAmount"
+        );
+
+
+    const accountInput =
+        document.getElementById(
+            "paymentAccount"
+        );
+
+
+    const amount =
+        Number(
+            amountInput.value
+        );
+
+
+    const account =
+        accountInput.value.trim();
+
+
+    if (
+        !amount ||
+        amount <= 0
+    ) {
+
+        showToast(
+            "Enter a valid amount."
+        );
+
+        return;
+
+    }
+
+
+    if (
+        amount > state.balance
+    ) {
+
+        showToast(
+            "Insufficient balance."
+        );
+
+        return;
+
+    }
+
+
+    if (
+        !state.selectedPaymentMethod
+    ) {
+
+        showToast(
+            "Select a payment method."
+        );
+
+        return;
+
+    }
+
+
+    if (!account) {
+
+        showToast(
+            "Enter your account number."
+        );
+
+        return;
+
+    }
+
+
+    const button =
+        document.getElementById(
+            "withdrawButton"
+        );
+
+
+    button.disabled = true;
+
+    button.textContent =
+        "Submitting...";
+
+
+    try {
+
+        const result =
+            await apiRequest(
+                "/withdraw",
+                {
+                    method: "POST",
+
+                    body: JSON.stringify({
+
+                        amount,
+
+                        method:
+                            state.selectedPaymentMethod,
+
+                        account
+
+                    })
+
+                }
+            );
+
+
+        showToast(
+            result.message ||
+            "Withdrawal request submitted."
+        );
+
+
+        amountInput.value = "";
+
+        accountInput.value = "";
+
+
+        await loadAccount();
+
+
+    } catch (error) {
+
+        showToast(
+            error.message
+        );
+
+    } finally {
+
+        button.disabled = false;
+
+        button.textContent =
+            "Request Withdrawal";
+
+    }
+
+}
+
+
+/* =========================================================
+   WITHDRAWAL HISTORY
+   ========================================================= */
+
+function renderWithdrawalHistory() {
+
+    const container =
+        document.getElementById(
+            "withdrawHistory"
+        );
+
+
+    container.innerHTML = "";
+
+
+    if (
+        !state.withdrawalHistory.length
+    ) {
+
+        container.innerHTML = `
+
+            <div style="
+                padding:22px;
+                text-align:center;
+                color:#69756e;
+                font-size:11px;
+            ">
+                No withdrawal history.
+            </div>
+
+        `;
+
+        return;
+
+    }
+
+
+    state.withdrawalHistory
+        .forEach(item => {
+
+            const row =
+                document.createElement(
+                    "div"
+                );
+
+
+            row.className =
+                "history-item";
+
+
+            const status =
+                String(
+                    item.status || "pending"
+                ).toLowerCase();
+
+
+            row.innerHTML = `
+
+                <div class="history-icon">
+                    ↗
+                </div>
+
+                <div class="history-info">
+
+                    <strong>
+                        ${
+                            escapeHTML(
+                                item.method || ""
+                            )
+                        }
+                    </strong>
+
+                    <small>
+                        ${
+                            escapeHTML(
+                                item.createdAt || ""
+                            )
+                        }
+                    </small>
+
+                </div>
+
+                <div class="history-amount">
+
+                    <div>
+                        ${formatMoney(
+                            item.amount
+                        )}
+                        ETB
+                    </div>
+
+                    <div class="
+                        history-status
+                        status-${status}
+                    ">
+                        ${escapeHTML(
+                            item.status || ""
+                        )}
+                    </div>
+
+                </div>
+
+            `;
+
+
+            container.appendChild(row);
+
+        });
+
+}
+
+
+/* =========================================================
+   NAVIGATION
+   ========================================================= */
+
+function openPage(page) {
+
+    const pages =
+        document.querySelectorAll(
+            ".page"
+        );
+
+
+    pages.forEach(element => {
+
+        element.classList.remove(
+            "active"
+        );
+
+    });
+
+
+    const target =
+        document.getElementById(
+            `${page}Page`
+        );
+
+
+    if (target) {
+
+        target.classList.add(
+            "active"
+        );
+
+    }
+
+
+    const navItems =
+        document.querySelectorAll(
+            ".nav-item"
+        );
+
+
+    navItems.forEach(item => {
+
+        item.classList.toggle(
+            "active",
+            item.dataset.page === page
+        );
 
     });
 
@@ -176,129 +1447,59 @@ function showPage(pageId) {
         behavior: "smooth"
     });
 
-}
 
+    if (
+        page === "home" &&
+        tg?.BackButton
+    ) {
 
-/* ================= CHECK IN ================= */
+        tg.BackButton.hide();
 
-function checkIn() {
+    } else if (
+        tg?.BackButton
+    ) {
 
-    if (checkedIn) {
-
-        showAlert(
-            "You have already checked in today."
-        );
-
-        return;
-    }
-
-
-    checkedIn = true;
-
-
-    balance += 2;
-
-
-    const button =
-        document.getElementById("checkInBtn");
-
-    if (button) {
-
-        button.textContent =
-            "✓ Checked In";
-
-        button.disabled = true;
-
-        button.style.opacity = "0.6";
+        tg.BackButton.show();
 
     }
-
-
-    updateUI();
-
-
-    showAlert(
-        "🎉 You earned 2 ETB!"
-    );
 
 }
 
 
-/* ================= WATCH AD ================= */
+/* =========================================================
+   EXTERNAL LINKS
+   ========================================================= */
 
-function watchAd() {
-
-    if (adCompleted >= 10) {
-
-        showAlert(
-            "You completed today's ad limit."
-        );
-
-        return;
-    }
-
+function openExternal(url) {
 
     /*
-       IMPORTANT:
-
-       This is only a demo.
-
-       A real advertising provider
-       should call the reward function
-       after the ad has actually been completed.
+        The backend can return real URLs.
     */
 
+    if (
+        !url ||
+        url.includes("TERMS_URL") ||
+        url.includes("PRIVACY_URL") ||
+        url.includes("SUPPORT_URL")
+    ) {
 
-    showAlert(
-        "Ad system will be connected here."
-    );
+        showToast(
+            "Link is not configured yet."
+        );
 
-}
-
-
-/*
-   Call this function ONLY after
-   a real ad has been completed.
-*/
-
-function rewardForAd() {
-
-    if (adCompleted >= 10) {
         return;
+
     }
 
 
-    adCompleted++;
+    if (tg?.openLink) {
 
-    balance += 2;
-
-
-    updateUI();
-
-
-    showAlert(
-        "🎉 +2 ETB added!"
-    );
-
-}
-
-
-/* ================= JOIN CHANNEL ================= */
-
-function joinChannel() {
-
-    const channel =
-        "https://t.me/your_channel";
-
-
-    if (tg && tg.openTelegramLink) {
-
-        tg.openTelegramLink(channel);
+        tg.openLink(url);
 
     } else {
 
         window.open(
-            channel,
+            url,
             "_blank"
         );
 
@@ -307,409 +1508,130 @@ function joinChannel() {
 }
 
 
-/* ================= INVITE ================= */
+/* =========================================================
+   TOAST
+   ========================================================= */
 
-function inviteFriends() {
-
-    const botUsername =
-        "YOUR_BOT_USERNAME";
-
-
-    const code =
-        getReferralCode();
+let toastTimer = null;
 
 
-    const referralLink =
-        "https://t.me/" +
-        botUsername +
-        "?start=" +
-        code;
+function showToast(message) {
+
+    const toast =
+        document.getElementById(
+            "toast"
+        );
 
 
     const text =
-        "Join FulusApp and earn rewards!";
-
-
-    const shareUrl =
-        "https://t.me/share/url?url=" +
-        encodeURIComponent(referralLink) +
-        "&text=" +
-        encodeURIComponent(text);
-
-
-    if (tg && tg.openTelegramLink) {
-
-        tg.openTelegramLink(shareUrl);
-
-    } else {
-
-        window.open(
-            shareUrl,
-            "_blank"
+        document.getElementById(
+            "toastText"
         );
 
-    }
+
+    text.textContent =
+        message;
+
+
+    toast.classList.add(
+        "show"
+    );
+
+
+    clearTimeout(
+        toastTimer
+    );
+
+
+    toastTimer =
+        setTimeout(() => {
+
+            toast.classList.remove(
+                "show"
+            );
+
+        }, 2600);
 
 }
 
 
-/* ================= PAYMENT METHOD ================= */
+/* =========================================================
+   EMPTY MESSAGE
+   ========================================================= */
 
-function selectPayment(
-    element,
-    method
-) {
+function emptyMessage(message) {
 
-    selectedPayment = method;
-
-
-    const methods =
-        document.querySelectorAll(
-            ".payment-method"
+    const div =
+        document.createElement(
+            "div"
         );
 
 
-    methods.forEach(item => {
-
-        item.classList.remove("active");
-
-    });
-
-
-    element.classList.add("active");
-
-
-    const label =
-        document.getElementById(
-            "accountLabel"
-        );
-
-    const input =
-        document.getElementById(
-            "accountNumber"
-        );
-
-
-    if (method === "Telebirr") {
-
-        label.textContent =
-            "Telebirr Phone Number";
-
-        input.placeholder =
-            "Enter Telebirr phone number";
-
-    }
-
-
-    if (method === "CBE") {
-
-        label.textContent =
-            "CBE Account Number";
-
-        input.placeholder =
-            "Enter CBE account number";
-
-    }
-
-
-    if (method === "Awash Bank") {
-
-        label.textContent =
-            "Awash Bank Account Number";
-
-        input.placeholder =
-            "Enter account number";
-
-    }
-
-}
-
-
-/* ================= WITHDRAW ================= */
-
-function requestWithdraw() {
-
-    const amountInput =
-        document.getElementById(
-            "withdrawAmount"
-        );
-
-    const accountInput =
-        document.getElementById(
-            "accountNumber"
-        );
-
-
-    const amount =
-        Number(amountInput.value);
-
-    const account =
-        accountInput.value.trim();
-
-
-    if (!amount || amount <= 0) {
-
-        showAlert(
-            "Please enter a valid amount."
-        );
-
-        return;
-    }
-
-
-    if (amount < 100) {
-
-        showAlert(
-            "Minimum withdrawal is 100 ETB."
-        );
-
-        return;
-    }
-
-
-    if (amount > balance) {
-
-        showAlert(
-            "Insufficient balance."
-        );
-
-        return;
-    }
-
-
-    if (!account) {
-
-        showAlert(
-            "Please enter your account number."
-        );
-
-        return;
-    }
-
-
-    /*
-       Frontend demo only.
-
-       The real version should send
-       the request to your backend.
-    */
-
-
-    const withdrawal = {
-
-        user_id:
-            telegramUser
-                ? telegramUser.id
-                : null,
-
-        amount: amount,
-
-        method: selectedPayment,
-
-        account: account,
-
-        created_at:
-            new Date().toISOString(),
-
-        status: "pending"
-
-    };
-
-
-    console.log(
-        "Withdrawal request:",
-        withdrawal
-    );
-
-
-    balance -= amount;
-
-
-    updateUI();
-
-
-    amountInput.value = "";
-    accountInput.value = "";
-
-
-    addWithdrawalHistory(
-        withdrawal
-    );
-
-
-    showAlert(
-        "✅ Withdrawal request submitted."
-    );
-
-}
-
-
-/* ================= WITHDRAW HISTORY ================= */
-
-function addWithdrawalHistory(
-    withdrawal
-) {
-
-    const container =
-        document.getElementById(
-            "withdrawHistory"
-        );
-
-
-    if (!container) {
-        return;
-    }
-
-
-    if (
-        container.querySelector(
-            ".empty-history"
-        )
-    ) {
-
-        container.innerHTML = "";
-
-    }
-
-
-    const item =
-        document.createElement("div");
-
-
-    item.className =
-        "task-card";
-
-
-    item.innerHTML = `
-
-        <div class="task-icon">
-            💸
-        </div>
-
-        <div class="task-info">
-
-            <h3>
-                ${withdrawal.method}
-            </h3>
-
-            <p>
-                ${withdrawal.amount.toFixed(2)}
-                ETB
-            </p>
-
-        </div>
-
-        <strong>
-            Pending
-        </strong>
-
+    div.style.cssText = `
+        padding:22px;
+        text-align:center;
+        color:#69756e;
+        font-size:11px;
+        border-radius:15px;
+        background:#0c1510;
+        border:1px solid rgba(255,255,255,.06);
     `;
 
 
-    container.prepend(item);
+    div.textContent =
+        message;
+
+
+    return div;
 
 }
 
 
-/* ================= TERMS ================= */
+/* =========================================================
+   MONEY
+   ========================================================= */
 
-function showTerms() {
+function formatMoney(value) {
 
-    showAlert(
-        "Terms: Users must be 18+ where legally required, use one account, and follow the reward rules."
-    );
+    const number =
+        Number(value);
 
-}
-
-
-/* ================= PRIVACY ================= */
-
-function showPrivacy() {
-
-    showAlert(
-        "Privacy: The app may process Telegram user ID, username, balances, referrals and withdrawal information needed to provide the service."
-    );
-
-}
-
-
-/* ================= SUPPORT ================= */
-
-function contactSupport() {
-
-    const support =
-        "https://t.me/YOUR_SUPPORT_USERNAME";
-
-
-    if (tg && tg.openTelegramLink) {
-
-        tg.openTelegramLink(
-            support
-        );
-
-    } else {
-
-        window.open(
-            support,
-            "_blank"
-        );
-
-    }
-
-}
-
-
-/* ================= ALERT ================= */
-
-function showAlert(message) {
 
     if (
-        tg &&
-        typeof tg.showAlert === "function"
+        !Number.isFinite(number)
     ) {
 
-        tg.showAlert(message);
-
-    } else {
-
-        alert(message);
+        return "0.00";
 
     }
+
+
+    return number.toFixed(2);
 
 }
 
 
-/* ================= TELEGRAM DATA ================= */
+/* =========================================================
+   HTML SECURITY
+   ========================================================= */
 
-function getTelegramData() {
+function escapeHTML(value) {
 
-    if (!tg) {
-        return null;
-    }
-
-
-    return {
-
-        initData:
-            tg.initData || "",
-
-        user:
-            tg.initDataUnsafe?.user || null
-
-    };
+    return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
 
 }
 
 
-/* ================= START ================= */
+function escapeAttribute(value) {
 
-updateUI();
+    return String(value ?? "")
+        .replaceAll("\\", "\\\\")
+        .replaceAll("'", "\\'")
+        .replaceAll('"', "&quot;");
 
-console.log(
-    "FulusApp loaded."
-);
-
-console.log(
-    "Telegram user:",
-    telegramUser
-);
+}
