@@ -46,7 +46,14 @@ const tg = window.Telegram?.WebApp;
     Do NOT put your Telegram bot token here.
 */
 
-const API_BASE = "/api";
+/*
+    REPLACE with your real backend address, e.g.
+    "https://fulusapp-backend.onrender.com/api"
+    ("/api" only works if the frontend and backend
+    are served from the same domain.)
+*/
+
+const API_BASE = "https://YOUR-BACKEND-URL/api";
 
 
 /* =========================================================
@@ -704,11 +711,7 @@ function createTask(task) {
                 )
             "
         >
-            ${
-                completed
-                    ? "Done"
-                    : "Start"
-            }
+            ${ completed ? "Done" : (task.started ? "Claim" : "Start") }
         </button>
 
     `;
@@ -762,6 +765,15 @@ async function completeTask(taskId) {
 
             openExternal(
                 result.url
+            );
+
+        }
+
+
+        if (result.message) {
+
+            showToast(
+                result.message
             );
 
         }
@@ -951,7 +963,7 @@ function inviteFriends() {
 
 
     const link =
-        `https://t.me/${botUsername}?start=ref_${encodeURIComponent(
+        `https://t.me/${botUsername}?startapp=ref_${encodeURIComponent(
             state.referralCode
         )}`;
 
@@ -1213,425 +1225,4 @@ async function submitWithdrawal() {
 
     const button =
         document.getElementById(
-            "withdrawButton"
-        );
-
-
-    button.disabled = true;
-
-    button.textContent =
-        "Submitting...";
-
-
-    try {
-
-        const result =
-            await apiRequest(
-                "/withdraw",
-                {
-                    method: "POST",
-
-                    body: JSON.stringify({
-
-                        amount,
-
-                        method:
-                            state.selectedPaymentMethod,
-
-                        account
-
-                    })
-
-                }
-            );
-
-
-        showToast(
-            result.message ||
-            "Withdrawal request submitted."
-        );
-
-
-        amountInput.value = "";
-
-        accountInput.value = "";
-
-
-        await loadAccount();
-
-
-    } catch (error) {
-
-        showToast(
-            error.message
-        );
-
-    } finally {
-
-        button.disabled = false;
-
-        button.textContent =
-            "Request Withdrawal";
-
-    }
-
-}
-
-
-/* =========================================================
-   WITHDRAWAL HISTORY
-   ========================================================= */
-
-function renderWithdrawalHistory() {
-
-    const container =
-        document.getElementById(
-            "withdrawHistory"
-        );
-
-
-    container.innerHTML = "";
-
-
-    if (
-        !state.withdrawalHistory.length
-    ) {
-
-        container.innerHTML = `
-
-            <div style="
-                padding:22px;
-                text-align:center;
-                color:#69756e;
-                font-size:11px;
-            ">
-                No withdrawal history.
-            </div>
-
-        `;
-
-        return;
-
-    }
-
-
-    state.withdrawalHistory
-        .forEach(item => {
-
-            const row =
-                document.createElement(
-                    "div"
-                );
-
-
-            row.className =
-                "history-item";
-
-
-            const status =
-                String(
-                    item.status || "pending"
-                ).toLowerCase();
-
-
-            row.innerHTML = `
-
-                <div class="history-icon">
-                    ↗
-                </div>
-
-                <div class="history-info">
-
-                    <strong>
-                        ${
-                            escapeHTML(
-                                item.method || ""
-                            )
-                        }
-                    </strong>
-
-                    <small>
-                        ${
-                            escapeHTML(
-                                item.createdAt || ""
-                            )
-                        }
-                    </small>
-
-                </div>
-
-                <div class="history-amount">
-
-                    <div>
-                        ${formatMoney(
-                            item.amount
-                        )}
-                        ETB
-                    </div>
-
-                    <div class="
-                        history-status
-                        status-${status}
-                    ">
-                        ${escapeHTML(
-                            item.status || ""
-                        )}
-                    </div>
-
-                </div>
-
-            `;
-
-
-            container.appendChild(row);
-
-        });
-
-}
-
-
-/* =========================================================
-   NAVIGATION
-   ========================================================= */
-
-function openPage(page) {
-
-    const pages =
-        document.querySelectorAll(
-            ".page"
-        );
-
-
-    pages.forEach(element => {
-
-        element.classList.remove(
-            "active"
-        );
-
-    });
-
-
-    const target =
-        document.getElementById(
-            `${page}Page`
-        );
-
-
-    if (target) {
-
-        target.classList.add(
-            "active"
-        );
-
-    }
-
-
-    const navItems =
-        document.querySelectorAll(
-            ".nav-item"
-        );
-
-
-    navItems.forEach(item => {
-
-        item.classList.toggle(
-            "active",
-            item.dataset.page === page
-        );
-
-    });
-
-
-    window.scrollTo({
-        top: 0,
-        behavior: "smooth"
-    });
-
-
-    if (
-        page === "home" &&
-        tg?.BackButton
-    ) {
-
-        tg.BackButton.hide();
-
-    } else if (
-        tg?.BackButton
-    ) {
-
-        tg.BackButton.show();
-
-    }
-
-}
-
-
-/* =========================================================
-   EXTERNAL LINKS
-   ========================================================= */
-
-function openExternal(url) {
-
-    /*
-        The backend can return real URLs.
-    */
-
-    if (
-        !url ||
-        url.includes("TERMS_URL") ||
-        url.includes("PRIVACY_URL") ||
-        url.includes("SUPPORT_URL")
-    ) {
-
-        showToast(
-            "Link is not configured yet."
-        );
-
-        return;
-
-    }
-
-
-    if (tg?.openLink) {
-
-        tg.openLink(url);
-
-    } else {
-
-        window.open(
-            url,
-            "_blank"
-        );
-
-    }
-
-}
-
-
-/* =========================================================
-   TOAST
-   ========================================================= */
-
-let toastTimer = null;
-
-
-function showToast(message) {
-
-    const toast =
-        document.getElementById(
-            "toast"
-        );
-
-
-    const text =
-        document.getElementById(
-            "toastText"
-        );
-
-
-    text.textContent =
-        message;
-
-
-    toast.classList.add(
-        "show"
-    );
-
-
-    clearTimeout(
-        toastTimer
-    );
-
-
-    toastTimer =
-        setTimeout(() => {
-
-            toast.classList.remove(
-                "show"
-            );
-
-        }, 2600);
-
-}
-
-
-/* =========================================================
-   EMPTY MESSAGE
-   ========================================================= */
-
-function emptyMessage(message) {
-
-    const div =
-        document.createElement(
-            "div"
-        );
-
-
-    div.style.cssText = `
-        padding:22px;
-        text-align:center;
-        color:#69756e;
-        font-size:11px;
-        border-radius:15px;
-        background:#0c1510;
-        border:1px solid rgba(255,255,255,.06);
-    `;
-
-
-    div.textContent =
-        message;
-
-
-    return div;
-
-}
-
-
-/* =========================================================
-   MONEY
-   ========================================================= */
-
-function formatMoney(value) {
-
-    const number =
-        Number(value);
-
-
-    if (
-        !Number.isFinite(number)
-    ) {
-
-        return "0.00";
-
-    }
-
-
-    return number.toFixed(2);
-
-}
-
-
-/* =========================================================
-   HTML SECURITY
-   ========================================================= */
-
-function escapeHTML(value) {
-
-    return String(value ?? "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-
-}
-
-
-function escapeAttribute(value) {
-
-    return String(value ?? "")
-        .replaceAll("\\", "\\\\")
-        .replaceAll("'", "\\'")
-        .replaceAll('"', "&quot;");
-
-}
+            "withdrawBut
